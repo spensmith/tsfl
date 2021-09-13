@@ -1,4 +1,5 @@
 import os
+import pathlib
 import subprocess
 import sys
 import time
@@ -14,7 +15,7 @@ height = int(0.8 * root.winfo_screenheight())
 root.geometry(f'{width}x{height}')
 root.withdraw()
 
-TESTING = True if 'spencer.smith' in os.getcwd() else False
+TESTING = True if 'spencer' in os.getcwd() else False
 RESULT_COLUMNS = ['Sorting Name', 'Name on Sheet', 'Correct']
 
 
@@ -500,11 +501,11 @@ def main():
         sys.exit()
 
     input('\nLet\'s get your answer sheet! Cool? Press enter to continue. ')
-    path_to_masterfile = '/Users/spencer.smith/Python/tsfl_local/picks/WK01-Answers.xlsx' if TESTING is True else filedialog.askopenfilename()
+    path_to_masterfile = str(pathlib.Path(__file__).parent / 'picks/WK01-Answers.xlsx' if TESTING is True else filedialog.askopenfilename())
     grading_dataframe, week_number, total_points_correct = get_master_from_xlsx(path_to_masterfile)
 
     input('\nGreat! Now let\'s go to this week\'s folder! Press enter when you\'re ready.\n')
-    path = '/Users/spencer.smith/Python/tsfl_local/picks' if TESTING is True else filedialog.askdirectory()
+    path = str(pathlib.Path(__file__).parent / 'picks' if TESTING is True else filedialog.askdirectory())
 
     directory = os.fsencode(path)
 
@@ -590,5 +591,5 @@ def main():
 
 
 if __name__ == '__main__':
-    # version = 2021.0.2
+    # version = 2021.0.3
     main()
