@@ -95,7 +95,7 @@ def get_master_from_xlsx(path_to_master_file):
         if row.is_tie_breaker:
             try:
                 for column_to_try in ('points', 'visitors_choice'):
-                    guess_cell = empty_string_to_null(str(master_dataframe.at[index, column_to_try]).strip())
+                    guess_cell = empty_string_to_null(str(master_dataframe.at[index, column_to_try]).strip().split('.0')[0])
                     if pd.notna(guess_cell):
                         break
 
@@ -222,7 +222,7 @@ def grade_participant(master_dataframe, results_dataframe, filename_with_xlsx, p
 
                 if row.is_tie_breaker:
                     for column_to_try in ('points', 'visitors_choice'):
-                        guess_cell = empty_string_to_null(str(participant_dataframe.at[index, column_to_try]).strip())
+                        guess_cell = empty_string_to_null(str(participant_dataframe.at[index, column_to_try]).strip().split('.0')[0])
                         if pd.notna(guess_cell):
                             break
                     try:
@@ -445,22 +445,22 @@ def main():
         sys.exit()
 
     input('\nLet\'s get your answer sheet! Cool? Press enter to continue. ')
-    # path_to_masterfile = filedialog.askopenfilename()
+    path_to_masterfile = filedialog.askopenfilename()
     # print(path_to_masterfile)
-    path_to_masterfile = '/Users/spencer.smith/Documents/Self/Python_Football/picks/Tom Smi.xlsx'
+    # path_to_masterfile = '/Users/spencer.smith/Documents/Self/Python_Football/picks/Tom Smi.xlsx'
     grading_dataframe, week_number, total_points_correct = get_master_from_xlsx(path_to_masterfile)
 
     input('\nGreat! Now let\'s go to this week\'s folder! Press enter when you\'re ready.\n')
-    # path = filedialog.askdirectory()
+    path = filedialog.askdirectory()
     # print(path)
-    path = '/Users/spencer.smith/Documents/Self/Python_Football/picks'
+    # path = '/Users/spencer.smith/Documents/Self/Python_Football/picks'
     directory = os.fsencode(path)
 
     print('Awesome... here we go!')
     sleep(1.5)
 
     print('\nReady?\n')
-    sleep(0.5)
+    sleep(1)
     print('3..\n')
     sleep(1)
     print('2..\n')
@@ -513,7 +513,7 @@ def main():
 
     try:
         export_results(path_to_masterfile=path_to_masterfile,
-                       label=f'Week {week_number} Results',
+                       label=f'Results for Week {week_number}',
                        week_number=week_number,
                        winning_number_of_games=winners_dataframe['Correct'].max(),
                        results_dataframe=results_dataframe)
