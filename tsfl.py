@@ -1,18 +1,25 @@
 import os
 import subprocess
 import sys
+import time
 import tkinter as tk
-from time import sleep
 from tkinter import filedialog
 
 import numpy as np
 import pandas as pd
 
 root = tk.Tk()
-width = int(0.8 * root.winfo_screenwidth())
+width = int(1.0 * root.winfo_screenwidth())
 height = int(0.8 * root.winfo_screenheight())
 root.geometry(f'{width}x{height}')
 root.withdraw()
+
+TESTING = True if 'spencer.smith' in os.getcwd() else False
+RESULT_COLUMNS = ['Sorting Name', 'Name on Sheet', 'Correct']
+
+
+def potential_sleep(sleep_seconds):
+    time.sleep(0 if TESTING is True else sleep_seconds)
 
 
 def empty_string_to_null(input_object):
@@ -59,7 +66,7 @@ def get_master_from_xlsx(path_to_master_file):
     master_dataframe['incomplete_game'] = master_dataframe['is_a_game'] & master_dataframe['dad_marked_nothing']
 
     print('\nOkay, I think the winners are:\n')
-    sleep(0.5)
+    potential_sleep(0.5)
 
     games_not_completed = len(master_dataframe[master_dataframe['incomplete_game'] == True])
     if games_not_completed > 0:
@@ -110,17 +117,17 @@ def get_master_from_xlsx(path_to_master_file):
                 total_points_correct = int(''.join(filter(str.isdigit, guess_cell)))
                 print('\nTotal Points Combined:', total_points_correct, '\n')
 
-                sleep(0.5)
+                potential_sleep(0.5)
                 # I now have which games are correct, as well as the correct point total.
                 if input('Is this what you have? Enter to continue, type anything if not. ') != '':
                     print('\nPlease correct the file and restart the program.')
-                    sleep(0.5)
+                    potential_sleep(0.5)
                     sys.exit()
 
             except ValueError:
                 if input('\nHmmm.. I don\'t see any points for Monday. Does that sound right? (y/n) ') != 'y':
                     print('\nPlease correct the file and restart the program.\n')
-                    sleep(0.5)
+                    potential_sleep(0.5)
                     sys.exit()
 
                 else:
@@ -308,20 +315,6 @@ def conditional_format(worksheet, workbook, column_format_range, winning_number_
             })
 
 
-# def export_logic_oldish(logic_dataframe, week_number):
-#     logic_name = 5
-#     with pd.ExcelWriter(logic_name, engine='xlsxwriter') as logic_writer:
-#         logic_dataframe.to_excel(logic_writer, sheet_name='Schedule', index=False)
-#         format_excel_worksheet(logic_writer.sheets['Schedule'], logic_dataframe)
-
-
-# def export_results_old(results_dataframe, week_number):
-#     results_name = f'Results for Week {week_number}.xlsx'
-#     with pd.ExcelWriter(results_name) as report_writer:
-#         results_dataframe.to_excel(report_writer, sheet_name='Results', index=False)
-#         format_excel_worksheet(report_writer.sheets['Results'], results_dataframe)
-
-
 def remove_inbetween_quotations(name):
     try:
         index_for_first_quotation = name.find('"')
@@ -387,6 +380,24 @@ def get_first_three_first_and_last(name):
     return formatted_name
 
 
+def get_first_and_last_with_chars(name, first_name_stub_size, last_name_stub_size, use_first_letter_of_third_word):
+    name = str(name).strip()
+    for cleaner in (quotation_cleaner, paren_cleaner, and_cleaner):
+        name = cleaner(name)
+
+    formatted_name = ''
+    name_split = list(filter(None, [word.strip() for word in name.split(' ')]))
+    for i, word in enumerate(name_split):
+        formatted_name += ' ' if 0 < i < len(name_split) else ''
+        if i == 0:
+            formatted_name += word[:first_name_stub_size]
+        if i == 1:
+            formatted_name += word[:last_name_stub_size]
+        elif i == 2 and use_first_letter_of_third_word is True:
+            formatted_name += word[0]
+    return formatted_name
+
+
 def get_letter_from_column(dataframe, week_string):
     for i, col in enumerate(list(dataframe)):
         if col == week_string:
@@ -409,29 +420,75 @@ def export_excel(dataframe, label):
         format_excel_worksheet(report_writer.sheets[sheetname], dataframe)
 
 
+def get_name_iterator():
+    for use_first_letter_of_third_word in [True, False]:
+        for first_name_stub_size in [4, 3]:
+            for last_name_stub_size in [4, 3]:
+                yield first_name_stub_size, last_name_stub_size, use_first_letter_of_third_word
+
+
+def get_current_column_name(week_number, column_names):
+    for column_name in column_names:
+        if f'{week_number:02}' in column_name:
+            return column_name
+    return f'Week {week_number:02}'
+
+
+
 def export_results(path_to_masterfile, label, week_number, winning_number_of_games, results_dataframe):
     filename, sheetname = get_filename_and_sheetname(label)
     print(f'Now exporting: {filename}')
 
     weekly_results = pd.ExcelFile(path_to_masterfile).parse('Weekly Results')
-    week_string = f'Week {week_number:02}'
+    for column in RESULT_COLUMNS:
+        weekly_results[column] = np.nan
 
-    weekly_results[f'first_three_first_and_last'] = weekly_results[list(weekly_results)[0]].apply(get_first_three_first_and_last)
+    for first_name_stub_size, last_name_stub_size, use_first_letter_of_third_word in get_name_iterator():
+        joining_column_name = f'first_{first_name_stub_size}_and_last_{last_name_stub_size}_with_{"initial" if use_first_letter_of_third_word else "no_initial"}'
+        # create joining column
+        weekly_results[joining_column_name] = \
+            weekly_results[list(weekly_results)[0]].apply(
+                get_first_and_last_with_chars,
+                first_name_stub_size=first_name_stub_size,
+                last_name_stub_size=last_name_stub_size,
+                use_first_letter_of_third_word=use_first_letter_of_third_word
+            )
+        # do a left join and add a suffix for any repeated column name
+        weekly_results = pd.merge(
+            weekly_results,
+            results_dataframe[RESULT_COLUMNS],
+            how='outer' if joining_column_name == 'first_3_and_last_3_with_no_initial' else 'left',
+            left_on=joining_column_name,
+            right_on='Sorting Name',
+            suffixes=['', f'_{joining_column_name}']
+        )
+        # we always fill the initial fill_column and we want to fillna with that value
+        for column in RESULT_COLUMNS:
+            fill_column = f'{column}_{joining_column_name}'
+            weekly_results[column] = weekly_results[column].fillna(weekly_results[fill_column])
 
-    dataframe = pd.merge(weekly_results, results_dataframe[['Sorting Name', 'Name on Sheet', 'Correct']], how='outer',
-                         left_on='first_three_first_and_last', right_on='Sorting Name')
+        # remove any columns that were duplicated, including the correct one, as we just fillna'd above
+        weekly_results.drop(columns=[x for x in list(weekly_results) if x.endswith(f'_{joining_column_name}')], inplace=True)
+
+    dataframe = weekly_results.copy()
+    # remove any leading spaces
     dataframe.rename(columns=lambda x: x.strip(), inplace=True)
+    # sort by dads column
+    dataframe.sort_values(by=list(dataframe)[0], inplace=True)
+    # remove duplicates so the final join doesn't add any that we already matched
+    dataframe.drop_duplicates(subset=list(dataframe)[0], inplace=True)
 
     with pd.ExcelWriter(filename) as writer:
-        dataframe[week_string] = dataframe['Correct']
+        current_week_column_name = get_current_column_name(week_number, list(dataframe))
+        dataframe[current_week_column_name] = dataframe['Correct']
         dataframe['Totals'] = dataframe['Totals'] + dataframe['Correct']
         dataframe[list(dataframe)[0]].fillna('  ' + dataframe['Name on Sheet'], inplace=True)
 
-        for col in (week_string, 'Totals'):
+        for col in (current_week_column_name, 'Totals'):
             dataframe[col].fillna(0, inplace=True)
 
         dataframe.to_excel(writer, sheet_name=sheetname, index=False)
-        letter = get_letter_from_column(dataframe, week_string)
+        letter = get_letter_from_column(dataframe, current_week_column_name)
         format_excel_worksheet(writer.sheets[sheetname], dataframe)
         conditional_format(
             worksheet=writer.sheets[sheetname],
@@ -446,7 +503,7 @@ def main():
 
     print('\nWelcome to TSFL, the Tom Smith Football League.\n')
     ready_answer = input('Are you ready for some foootballlll? (y/n) ')
-    sleep(0.5)
+    potential_sleep(0.5)
 
     if ready_answer.lower() == 'y':
         look_at = None
@@ -462,28 +519,25 @@ def main():
         sys.exit()
 
     input('\nLet\'s get your answer sheet! Cool? Press enter to continue. ')
-    # path_to_masterfile = filedialog.askopenfilename()
-    # print(path_to_masterfile)
-    path_to_masterfile = '/tsfl_local/Week1Answers.xlsx'
+    path_to_masterfile = '/Users/spencer.smith/Python/tsfl_local/tsfl_local/Week1Answers.xlsx' if TESTING is True else filedialog.askopenfilename()
     grading_dataframe, week_number, total_points_correct = get_master_from_xlsx(path_to_masterfile)
 
     input('\nGreat! Now let\'s go to this week\'s folder! Press enter when you\'re ready.\n')
-    # path = filedialog.askdirectory()
-    # print(path)
-    path = '/tsfl_local'
+    path = '/Users/spencer.smith/Python/tsfl_local/tsfl_local' if TESTING is True else filedialog.askdirectory()
+
     directory = os.fsencode(path)
 
     print('Awesome... here we go!')
-    sleep(1.5)
+    potential_sleep(1.5)
 
     print('\nReady?\n')
-    sleep(1)
+    potential_sleep(1)
     print('3..\n')
-    sleep(1)
+    potential_sleep(1)
     print('2..\n')
-    sleep(1)
+    potential_sleep(1)
     print('1..\n')
-    sleep(1)
+    potential_sleep(1)
 
     files_parsed = []
     master_filename = path_to_masterfile.split('/')[-1]
@@ -518,37 +572,37 @@ def main():
     winners_dataframe = results_dataframe[results_dataframe['Correct'] == results_dataframe['Correct'].max()]
 
     print('Congratulations to... ')
-    sleep(1)
+    potential_sleep(1)
     print('\n', winners_dataframe.to_string(), '\n')
-    sleep(1.5)
+    potential_sleep(1.5)
 
     print('Here are your full results: ')
-    sleep(0.5)
+    potential_sleep(0.5)
     print('\nTotal Points Combined:', total_points_correct, '\n')
 
     print('\n', results_dataframe.to_string(), '\n\n')
 
     export_excel(grading_dataframe, f'Scoring Logic for Week {week_number}.xlsx')
 
-    try:
-        export_results(
-            path_to_masterfile=path_to_masterfile,
-            label=f'Results for Week {week_number}',
-            week_number=week_number,
-            winning_number_of_games=winners_dataframe['Correct'].max(),
-            results_dataframe=results_dataframe
-        )
-    except Exception as e:
-        print(f'We were unable to nicely format the scores for you, and the error was {e}.')
-        print(f'But your results and logic files should survive unscathed.')
-        export_excel(results_dataframe, f'Results for Week {week_number}.xlsx')
+    # try:
+    export_results(
+        path_to_masterfile=path_to_masterfile,
+        label=f'Results for Week {week_number}',
+        week_number=week_number,
+        winning_number_of_games=winners_dataframe['Correct'].max(),
+        results_dataframe=results_dataframe
+    )
+    # except Exception as e:
+    #     print(f'We were unable to nicely format the scores for you, and the error was {e}.')
+    #     print(f'But your results and logic files should survive unscathed.')
+    #     export_excel(results_dataframe, f'Results for Week {week_number}.xlsx')
 
-    sleep(1.5)
+    potential_sleep(1.5)
     print('\nLove you always Dad, Spence.\n')
-    sleep(5)
+    potential_sleep(5)
     input('Press enter to close.\n')
 
 
 if __name__ == '__main__':
-    # version = 2020.0.0
+    # version = 2021.0.0
     main()
