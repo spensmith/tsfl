@@ -1,13 +1,17 @@
-from tkinter import filedialog
-from time import sleep
-import tkinter as tk
-import pandas as pd
-import numpy as np
+import os
 import subprocess
 import sys
-import os
+import tkinter as tk
+from time import sleep
+from tkinter import filedialog
+
+import numpy as np
+import pandas as pd
 
 root = tk.Tk()
+width = int(0.8 * root.winfo_screenwidth())
+height = int(0.8 * root.winfo_screenheight())
+root.geometry(f'{width}x{height}')
 root.withdraw()
 
 
@@ -34,7 +38,8 @@ def get_master_from_xlsx(path_to_master_file):
     master_dataframe['visitor_potential_game'] = pd.notna(master_dataframe['visitors'])
     master_dataframe['home_potential_game'] = pd.notna(master_dataframe['home'])
     master_dataframe['not_visitor_home'] = np.logical_not(master_dataframe['home'].str.upper().str.contains('TEAM'))
-    master_dataframe['is_a_game'] = master_dataframe['visitor_potential_game'] & master_dataframe['home_potential_game'] & master_dataframe['not_visitor_home']
+    master_dataframe['is_a_game'] = master_dataframe['visitor_potential_game'] & master_dataframe[
+        'home_potential_game'] & master_dataframe['not_visitor_home']
 
     master_dataframe['says_football'] = master_dataframe['visitors_choice'].str.upper().str.contains('FOOTBALL')
     master_dataframe['above_says_football'] = master_dataframe['says_football'].shift(1)
@@ -43,7 +48,8 @@ def get_master_from_xlsx(path_to_master_file):
 
     master_dataframe['dad_marked_visitor'] = pd.notna(master_dataframe['visitors_choice'])
     master_dataframe['dad_marked_home'] = pd.notna(master_dataframe['home_choice'])
-    master_dataframe['dad_marked_something'] = master_dataframe['dad_marked_visitor'] | master_dataframe['dad_marked_home']
+    master_dataframe['dad_marked_something'] = master_dataframe['dad_marked_visitor'] | master_dataframe[
+        'dad_marked_home']
     master_dataframe['dad_marked_nothing'] = np.logical_not(master_dataframe['dad_marked_something'])
 
     master_dataframe['visitor_won'] = master_dataframe['is_a_game'] & master_dataframe['dad_marked_visitor']
@@ -63,10 +69,11 @@ def get_master_from_xlsx(path_to_master_file):
             sys.exit()
 
     total_points_correct = 0
-    master_dataframe['is_tie_breaker'] = np.where(master_dataframe['visitors_choice'].str.contains('Total Combined Points')
-                                                  & master_dataframe['visitors_choice'].notna(),
-                                                  True,
-                                                  False)
+    master_dataframe['is_tie_breaker'] = np.where(
+        master_dataframe['visitors_choice'].str.contains('Total Combined Points')
+        & master_dataframe['visitors_choice'].notna(),
+        True,
+        False)
 
     for index, row in master_dataframe.iterrows():
 
@@ -95,7 +102,8 @@ def get_master_from_xlsx(path_to_master_file):
         if row.is_tie_breaker:
             try:
                 for column_to_try in ('points', 'visitors_choice'):
-                    guess_cell = empty_string_to_null(str(master_dataframe.at[index, column_to_try]).strip().split('.0')[0])
+                    guess_cell = empty_string_to_null(
+                        str(master_dataframe.at[index, column_to_try]).strip().split('.0')[0])
                     if pd.notna(guess_cell):
                         break
 
@@ -117,7 +125,8 @@ def get_master_from_xlsx(path_to_master_file):
 
                 else:
                     # I should have some correct games, and now correct points is zero
-                    if input('\nAlright, so continuing like normal. Is the above what you have? Enter to continue, type anything if not. ') != '':
+                    if input(
+                            '\nAlright, so continuing like normal. Is the above what you have? Enter to continue, type anything if not. ') != '':
                         print('\nPlease correct the file and restart the program.')
                         sys.exit()
 
@@ -148,11 +157,13 @@ def potentially_inspect(dataframe, sheet, filename_with_xlsx, look_at=None):
                     satisfied = True
 
 
-def grade_participant(master_dataframe, results_dataframe, filename_with_xlsx, path, total_points_correct, look_at=None):
+def grade_participant(master_dataframe, results_dataframe, filename_with_xlsx, path, total_points_correct,
+                      look_at=None):
     filename_w_o_xlsx = filename_with_xlsx.split('.xlsx')[0]
 
     participant_all_sheets = pd.ExcelFile(path + '/' + filename_with_xlsx)
-    for sheet in set(participant_all_sheets.sheet_names).difference({'Weekly Results', 'WeeklyResults', 'Export Summary'}):
+    for sheet in set(participant_all_sheets.sheet_names).difference(
+            {'Weekly Results', 'WeeklyResults', 'Export Summary'}):
         try:
             participant_dataframe = participant_all_sheets.parse(sheet, header=None, usecols='B:G')
             if len(list(participant_dataframe)) == 5:
@@ -174,8 +185,10 @@ def grade_participant(master_dataframe, results_dataframe, filename_with_xlsx, p
             participant_dataframe['p_marked_visitor'] = pd.notna(participant_dataframe['visitors_choice'])
             participant_dataframe['p_marked_home'] = pd.notna(participant_dataframe['home_choice'])
 
-            participant_dataframe['p_visitor_chosen'] = participant_dataframe['is_a_game'] & participant_dataframe['p_marked_visitor']
-            participant_dataframe['p_home_chosen'] = participant_dataframe['is_a_game'] & participant_dataframe['p_marked_home']
+            participant_dataframe['p_visitor_chosen'] = participant_dataframe['is_a_game'] & participant_dataframe[
+                'p_marked_visitor']
+            participant_dataframe['p_home_chosen'] = participant_dataframe['is_a_game'] & participant_dataframe[
+                'p_marked_home']
 
             participant_name = str(participant_dataframe.at[0, 'name']).strip()
 
@@ -222,7 +235,8 @@ def grade_participant(master_dataframe, results_dataframe, filename_with_xlsx, p
 
                 if row.is_tie_breaker:
                     for column_to_try in ('points', 'visitors_choice'):
-                        guess_cell = empty_string_to_null(str(participant_dataframe.at[index, column_to_try]).strip().split('.0')[0])
+                        guess_cell = empty_string_to_null(
+                            str(participant_dataframe.at[index, column_to_try]).strip().split('.0')[0])
                         if pd.notna(guess_cell):
                             break
                     try:
@@ -241,17 +255,19 @@ def grade_participant(master_dataframe, results_dataframe, filename_with_xlsx, p
                     else:
                         points_off_sort = points_off
 
-            p_games_correct = len(participant_dataframe[participant_dataframe['complete_game'] & participant_dataframe['is_correct'] == True])
-            p_games_incorrect = len(participant_dataframe[participant_dataframe['complete_game'] & ~(participant_dataframe['is_correct'] == True)])
+            p_games_correct = len(participant_dataframe[participant_dataframe['complete_game'] & participant_dataframe[
+                'is_correct'] == True])
+            p_games_incorrect = len(participant_dataframe[participant_dataframe['complete_game'] & ~(
+                    participant_dataframe['is_correct'] == True)])
 
             participant_score_row = pd.DataFrame({
-                'Sorting Name'   : filename_w_o_xlsx,
-                'Name on Sheet'  : participant_name,
-                'Correct'        : p_games_correct,
-                'Incorrect'      : p_games_incorrect,
-                'Points Guessed' : total_points_guessed,
+                'Sorting Name': filename_w_o_xlsx,
+                'Name on Sheet': participant_name,
+                'Correct': p_games_correct,
+                'Incorrect': p_games_incorrect,
+                'Points Guessed': total_points_guessed,
                 'Points off Sort': points_off_sort,
-                'Points off'     : points_off
+                'Points off': points_off
             },
                 index=[0])
 
@@ -273,22 +289,22 @@ def format_excel_worksheet(worksheet, dataframe):
 def conditional_format(worksheet, workbook, column_format_range, winning_number_of_games):
     if workbook:
         colors_dictionary = {
-            '0'                    : {
-                'bg_color'  : '#FFC7CE',
+            '0': {
+                'bg_color': '#FFC7CE',
                 'font_color': '#9C0006'
             },
             winning_number_of_games: {
-                'bg_color'  : '#C6EFCE',
+                'bg_color': '#C6EFCE',
                 'font_color': '#006100'
             }
         }
         for if_equals, format_dictionary in colors_dictionary.items():
             excel_format = workbook.add_format(format_dictionary)
             worksheet.conditional_format(column_format_range, {
-                'type'    : 'cell',
+                'type': 'cell',
                 'criteria': '=',
-                'value'   : if_equals,
-                'format'  : excel_format
+                'value': if_equals,
+                'format': excel_format
             })
 
 
@@ -353,7 +369,7 @@ def and_cleaner(name):
 
 
 def get_first_three_first_and_last(name):
-    name = name.strip()
+    name = str(name).strip()
     for cleaner in (quotation_cleaner, paren_cleaner, and_cleaner):
         name = cleaner(name)
 
@@ -369,7 +385,6 @@ def get_first_three_first_and_last(name):
         elif i == 2:
             formatted_name += word[0]
     return formatted_name
-
 
 
 def get_letter_from_column(dataframe, week_string):
@@ -400,10 +415,13 @@ def export_results(path_to_masterfile, label, week_number, winning_number_of_gam
 
     weekly_results = pd.ExcelFile(path_to_masterfile).parse('Weekly Results')
     week_string = f'Week {week_number:02}'
-    weekly_results['first_three_first_and_last'] = weekly_results[list(weekly_results)[0]].apply(get_first_three_first_and_last)
 
-    dataframe = pd.merge(weekly_results, results_dataframe[['Sorting Name', 'Name on Sheet', 'Correct']], how='outer', left_on='first_three_first_and_last', right_on='Sorting Name')
+    weekly_results[f'first_three_first_and_last'] = weekly_results[list(weekly_results)[0]].apply(get_first_three_first_and_last)
+
+    dataframe = pd.merge(weekly_results, results_dataframe[['Sorting Name', 'Name on Sheet', 'Correct']], how='outer',
+                         left_on='first_three_first_and_last', right_on='Sorting Name')
     dataframe.rename(columns=lambda x: x.strip(), inplace=True)
+
     with pd.ExcelWriter(filename) as writer:
         dataframe[week_string] = dataframe['Correct']
         dataframe['Totals'] = dataframe['Totals'] + dataframe['Correct']
@@ -413,13 +431,14 @@ def export_results(path_to_masterfile, label, week_number, winning_number_of_gam
             dataframe[col].fillna(0, inplace=True)
 
         dataframe.to_excel(writer, sheet_name=sheetname, index=False)
-
         letter = get_letter_from_column(dataframe, week_string)
         format_excel_worksheet(writer.sheets[sheetname], dataframe)
-        conditional_format(worksheet=writer.sheets[sheetname],
-                           workbook=writer.book,
-                           column_format_range=f'{letter}1:{letter}{len(dataframe)}',
-                           winning_number_of_games=winning_number_of_games)
+        conditional_format(
+            worksheet=writer.sheets[sheetname],
+            workbook=writer.book,
+            column_format_range=f'{letter}1:{letter}{len(dataframe)}',
+            winning_number_of_games=winning_number_of_games
+        )
 
 
 def main():
@@ -429,8 +448,6 @@ def main():
     ready_answer = input('Are you ready for some foootballlll? (y/n) ')
     sleep(0.5)
 
-    # ready_answer = 'y'
-    # ready_answer = 'inspect'
     if ready_answer.lower() == 'y':
         look_at = None
     elif ready_answer.lower() == 'inspect':
@@ -445,15 +462,15 @@ def main():
         sys.exit()
 
     input('\nLet\'s get your answer sheet! Cool? Press enter to continue. ')
-    path_to_masterfile = filedialog.askopenfilename()
+    # path_to_masterfile = filedialog.askopenfilename()
     # print(path_to_masterfile)
-    # path_to_masterfile = '/Users/spencer.smith/Documents/Self/Python_Football/picks/Tom Smi.xlsx'
+    path_to_masterfile = '/tsfl_local/Week1Answers.xlsx'
     grading_dataframe, week_number, total_points_correct = get_master_from_xlsx(path_to_masterfile)
 
     input('\nGreat! Now let\'s go to this week\'s folder! Press enter when you\'re ready.\n')
-    path = filedialog.askdirectory()
+    # path = filedialog.askdirectory()
     # print(path)
-    # path = '/Users/spencer.smith/Documents/Self/Python_Football/picks'
+    path = '/tsfl_local'
     directory = os.fsencode(path)
 
     print('Awesome... here we go!')
@@ -476,12 +493,14 @@ def main():
 
         if all([filename.endswith('.xlsx'), filename != master_filename, not filename.startswith('~$')]):
             try:
-                results_dataframe = grade_participant(master_dataframe=grading_dataframe,
-                                                      results_dataframe=results_dataframe,
-                                                      filename_with_xlsx=filename,
-                                                      path=path,
-                                                      total_points_correct=total_points_correct,
-                                                      look_at=look_at)
+                results_dataframe = grade_participant(
+                    master_dataframe=grading_dataframe,
+                    results_dataframe=results_dataframe,
+                    filename_with_xlsx=filename,
+                    path=path,
+                    total_points_correct=total_points_correct,
+                    look_at=look_at
+                )
 
                 files_parsed += [filename]
             except Exception:
@@ -512,15 +531,17 @@ def main():
     export_excel(grading_dataframe, f'Scoring Logic for Week {week_number}.xlsx')
 
     try:
-        export_results(path_to_masterfile=path_to_masterfile,
-                       label=f'Results for Week {week_number}',
-                       week_number=week_number,
-                       winning_number_of_games=winners_dataframe['Correct'].max(),
-                       results_dataframe=results_dataframe)
+        export_results(
+            path_to_masterfile=path_to_masterfile,
+            label=f'Results for Week {week_number}',
+            week_number=week_number,
+            winning_number_of_games=winners_dataframe['Correct'].max(),
+            results_dataframe=results_dataframe
+        )
     except Exception as e:
         print(f'We were unable to nicely format the scores for you, and the error was {e}.')
         print(f'But your results and logic files should survive unscathed.')
-        export_excel(grading_dataframe, f'Results for Week {week_number}.xlsx')
+        export_excel(results_dataframe, f'Results for Week {week_number}.xlsx')
 
     sleep(1.5)
     print('\nLove you always Dad, Spence.\n')
@@ -529,4 +550,5 @@ def main():
 
 
 if __name__ == '__main__':
+    # version = 2020.0.0
     main()
