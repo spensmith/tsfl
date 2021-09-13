@@ -1,6 +1,6 @@
 import pandas as pd
 import sys
-import subprocess
+#import subprocess
 import os
 import numpy as np
 import tkinter as tk
@@ -10,7 +10,7 @@ import time
 root = tk.Tk()
 root.withdraw()
 
-subprocess.call(['osascript', '-e', 'tell application "Excel" to quit'])
+#subprocess.call(['osascript', '-e', 'tell application "Excel" to quit'])
 
 report_df = pd.DataFrame()
 
@@ -21,9 +21,11 @@ if input("Are you ready for some foootballlll? (y/n) ") != 'y':
     print("Alright, restart when you're ready!")
     sys.exit()
 print("")
-input('Please navigate to the Excel file that holds the answers. Press enter to continue.')
+print("Here in a sec, I'll need you to navigate to the answer sheet. Cool?")
+time.sleep(1)
+print("")
+input('Press enter to continue. ')
 file_path = filedialog.askopenfilename()
-print('\n'*80)
 
 xl = pd.ExcelFile(file_path)
 
@@ -57,8 +59,6 @@ print("")
 print("Okay, I think the winners are:")
 
 print("")
-print("")
-
 
 if games_not_completed > 0:
     print("It looks like I have", games_not_completed, "unfinished games.")
@@ -70,7 +70,7 @@ if games_not_completed > 0:
 master_df['is_tie_breaker'] = master_df['v'].str.contains("Total Combined Points")
 
 for row in master_df.itertuples(index=True):
-    
+
     visitor_team = row.visitors
     home_team = row.home
     visitor_won = row.visitor_won
@@ -83,7 +83,7 @@ for row in master_df.itertuples(index=True):
     elif visitor_won & np.logical_not(home_won):
         winner = visitor_team
         print(winner)
-        
+
     elif np.logical_not(visitor_won) & home_won:
         winner = home_team
         print(winner)
@@ -111,11 +111,14 @@ if input("Is this what you have? Enter to continue, type anything if not. ") != 
 
 print("")
 print("Okay, I think I'm ready to grade. ")
-print("")
 time.sleep(1)
-
 print("")
-input("Please navigate to the folder that holds everyones' sheets. Once completed, just tap enter to continue.")
+
+
+print("On this next step, please navigate to the folder that holds the sheets for this week.")
+time.sleep(1)
+print("")
+input("Press enter when you're ready. ")
 print("")
 
 path = filedialog.askdirectory()
@@ -124,11 +127,8 @@ path = filedialog.askdirectory()
 
 directory = os.fsencode(path)
 
-print("")
-print("")
 print("Awesome... now here comes the magic!")
 time.sleep(3)
-print("")
 print("")
 
 print("Ready?")
@@ -258,33 +258,21 @@ winners_df = report_df[report_df['Correct'] == report_df['Correct'].max()]
 print("Congratulations to... ")
 print("")
 print(winners_df)
-# print(winners_df['Name'][0])
 print("")
 time.sleep(3)
 
-print("")
-print("")
 print("Here are your full results: ")
+time.sleep(1)
 print("")
 print(report_df)
 print("")
 print("")
 
 
-time.sleep(2)
-print("I also printed this to an excel file called Results.xlsx. Check it out!")
-print("")
-time.sleep(3)
-print("Love you Dad, Spence.")
-
-
-### Closing ###
-
-## saving to files
-
 report_writer = pd.ExcelWriter('Results.xlsx', engine = 'xlsxwriter')
 report_df.to_excel(report_writer, sheet_name='Results', index=False)
 worksheet = report_writer.sheets['Results']
+
 writer = pd.ExcelWriter('answers.xlsx', engine = 'xlsxwriter')
 master_df.to_excel(writer, sheet_name='Schedule')
 
@@ -294,23 +282,17 @@ for i, col in enumerate(report_df.columns):
     iterate_length = report_df[col].astype(str).str.len().max()
     header_length = len(col)
     max_size = max(iterate_length, header_length) + 1
-    max_size = min(max_size, 20)
-    if col in columns_to_hide:
-        worksheet.set_column(i+1, i+1, max_size, None, {'hidden': 1})
-    else:
-        worksheet.set_column(i+1, i+1, max_size)
+    worksheet.set_column(i, i, max_size)
+
 report_writer.close()
 writer.close()
 print("")
 
-# yn = input('show excel?')
-yn = 'no'
-if yn == '':
-    file = '/Users/spencer.smith/Documents/Self/Python_Football/answers.xlsx'
-    retcode = 0
-    try:
-        retcode = subprocess.call("open " + file, shell=True)
-        if retcode < 0:
-            print("Error in opening, returning", -retcode)
-    except OSError:
-        print("Execution failed:", OSError)
+time.sleep(2)
+print("I also printed this to an excel file called Results.xlsx. Check it out!")
+print("")
+time.sleep(3)
+print("Love you Dad, Spence.")
+time.sleep(10)
+print("")
+input("Whenever you are ready, your next input will close out the program.")
