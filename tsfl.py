@@ -164,7 +164,7 @@ def potentially_inspect(dataframe, sheet, filename_with_xlsx, look_at=None):
                     satisfied = True
 
 
-def grade_participant(master_dataframe, results_dataframe, filename_with_xlsx, path, total_points_correct,
+def grade_participant(master_dataframe, filename_with_xlsx, path, total_points_correct,
                       look_at=None):
     filename_w_o_xlsx = filename_with_xlsx.split('.xlsx')[0]
 
@@ -267,18 +267,18 @@ def grade_participant(master_dataframe, results_dataframe, filename_with_xlsx, p
             p_games_incorrect = len(participant_dataframe[participant_dataframe['complete_game'] & ~(
                     participant_dataframe['is_correct'] == True)])
 
-            participant_score_row = pd.DataFrame({
-                'Sorting Name': [filename_w_o_xlsx],
-                'Name on Sheet': [participant_name],
-                'Correct': [p_games_correct],
-                'Incorrect': [p_games_incorrect],
-                'Points Guessed': [total_points_guessed],
-                'Points off Sort': [points_off_sort],
-                'Points off': [points_off]
-            })
+            participant_score_row = {
+                'Sorting Name': filename_w_o_xlsx,
+                'Name on Sheet': participant_name,
+                'Correct': p_games_correct,
+                'Incorrect': p_games_incorrect,
+                'Points Guessed': total_points_guessed,
+                'Points off Sort': points_off_sort,
+                'Points off': points_off,
+            }
 
             potentially_inspect(participant_dataframe, sheet, filename_with_xlsx, look_at)
-            return results_dataframe.append(participant_score_row)
+            return participant_score_row
         except Exception as e:
             print(f'Unable to parse {sheet} within {filename_with_xlsx}. The exception is {e}')
             pass
@@ -422,7 +422,7 @@ def export_results(path_to_masterfile, label, week_number, winning_number_of_gam
     for column in RESULT_COLUMNS:
         weekly_results[column] = np.nan
 
-    for first_name_stub_size, last_name_stub_size, use_first_letter_of_third_word in get_name_iterator():
+    for i, (first_name_stub_size, last_name_stub_size, use_first_letter_of_third_word) in enumerate(get_name_iterator()):
         joining_column_name = f'first_{first_name_stub_size}_and_last_{last_name_stub_size}_with_{"initial" if use_first_letter_of_third_word else "no_initial"}'
         # create joining column
         weekly_results[joining_column_name] = \
@@ -455,20 +455,23 @@ def export_results(path_to_masterfile, label, week_number, winning_number_of_gam
     dataframe.rename(columns=lambda x: x.strip(), inplace=True)
     # sort by dads column
     dataframe.sort_values(by=list(dataframe)[0], inplace=True)
+    # get the column name that contains the zero-padded week number
+    current_week_column_name = get_current_column_name(week_number, list(dataframe))
+    # copy the correct total
+    dataframe[current_week_column_name] = dataframe['Correct']
+    # add their correct to their total
+    dataframe['Totals'] = dataframe['Totals'] + dataframe['Correct']
+    # fill in the Football Pool Participants
+    dataframe[list(dataframe)[0]].fillna('  ' + dataframe['Sorting Name'], inplace=True)
     # remove duplicates so the final join doesn't add any that we already matched
-    dataframe.drop_duplicates(subset=list(dataframe)[0], inplace=True)
+    dataframe.drop_duplicates(subset='Sorting Name', inplace=True)
 
+    for col in [current_week_column_name, 'Totals']:
+        dataframe[col].fillna(0, inplace=True)
+
+    letter = get_letter_from_column(dataframe, current_week_column_name)
     with pd.ExcelWriter(filename) as writer:
-        current_week_column_name = get_current_column_name(week_number, list(dataframe))
-        dataframe[current_week_column_name] = dataframe['Correct']
-        dataframe['Totals'] = dataframe['Totals'] + dataframe['Correct']
-        dataframe[list(dataframe)[0]].fillna('  ' + dataframe['Name on Sheet'], inplace=True)
-
-        for col in (current_week_column_name, 'Totals'):
-            dataframe[col].fillna(0, inplace=True)
-
         dataframe.to_excel(writer, sheet_name=sheetname, index=False)
-        letter = get_letter_from_column(dataframe, current_week_column_name)
         format_excel_worksheet(writer.sheets[sheetname], dataframe)
         conditional_format(
             worksheet=writer.sheets[sheetname],
@@ -479,8 +482,6 @@ def export_results(path_to_masterfile, label, week_number, winning_number_of_gam
 
 
 def main():
-    results_dataframe = pd.DataFrame()
-
     print('\nWelcome to TSFL, the Tom Smith Football League.\n')
     ready_answer = input('Are you ready for some foootballlll? (y/n) ')
     potential_sleep(0.5)
@@ -521,19 +522,21 @@ def main():
 
     files_parsed = []
     master_filename = path_to_masterfile.split('/')[-1]
+    results_list = []
 
     for file in sorted(os.listdir(directory)):
         filename = os.fsdecode(file)
 
         if all([filename.endswith('.xlsx'), filename != master_filename, not filename.startswith('~$')]):
             try:
-                results_dataframe = grade_participant(
-                    master_dataframe=grading_dataframe,
-                    results_dataframe=results_dataframe,
-                    filename_with_xlsx=filename,
-                    path=path,
-                    total_points_correct=total_points_correct,
-                    look_at=look_at
+                results_list.append(
+                    grade_participant(
+                        master_dataframe=grading_dataframe,
+                        filename_with_xlsx=filename,
+                        path=path,
+                        total_points_correct=total_points_correct,
+                        look_at=look_at
+                    )
                 )
 
                 files_parsed += [filename]
@@ -543,11 +546,14 @@ def main():
                 print(f'Unable to parse: {filename}')
                 pass
 
+    results_dataframe = pd.DataFrame(results_list)
+
     for col in ('Points Guessed', 'Points off'):
         results_dataframe[col] = results_dataframe[col].astype(int).replace(-1000, 'Error')
 
-    results_dataframe = results_dataframe.sort_values(['Correct', 'Points off Sort'], ascending=[False, True])
+    results_dataframe.sort_values(['Correct', 'Points off Sort'], ascending=[False, True], inplace=True)
     results_dataframe.drop(columns='Points off Sort', inplace=True)
+    results_dataframe.reset_index(inplace=True)
 
     winners_dataframe = results_dataframe[results_dataframe['Correct'] == results_dataframe['Correct'].max()].set_index('Sorting Name')
 
@@ -584,5 +590,5 @@ def main():
 
 
 if __name__ == '__main__':
-    # version = 2021.0.1
+    # version = 2021.0.2
     main()
