@@ -410,7 +410,7 @@ def get_name_iterator():
 
 def get_current_column_name(week_number, column_names):
     for column_name in column_names:
-        if f'{week_number:02}' in column_name:
+        if f'{week_number:02}' in column_name and 'week' in column_name:
             return column_name
     return f'Week {week_number:02}'
 
@@ -591,5 +591,5 @@ def main():
 
 
 if __name__ == '__main__':
-    # version = 2021.0.3
+    # version = 2021.0.4
     main()
